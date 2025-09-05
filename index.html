@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Polars Cheat Sheet (Python) — Eager & Lazy</title>
+  <style>
+    :root{
+      --bg:#0b1020;--panel:#121a2e;--ink:#e9eefc;--muted:#a9b3d2;--brand:#7aa2ff;--accent:#2dd4bf;--warn:#f59e0b;--ok:#22c55e;--bad:#ef4444;
+      --code:#0d1326;--border:#1b2440;--chip:#1a2342;--kbd:#19223f;
+    }
+    html,body{height:100%}
+    body{
+      margin:0;font:16px/1.55 system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Helvetica Neue",Arial; color:var(--ink); background:radial-gradient(1200px 600px at 10% -10%,#19265300 30%,#19265366 60%,#192653aa 100%), var(--bg);
+    }
+    .wrap{max-width:1100px;margin:0 auto;padding:28px}
+    header{display:flex;gap:18px;align-items:center;justify-content:space-between;margin-bottom:18px}
+    .title h1{margin:0;font-size:28px;letter-spacing:.2px}
+    .title p{margin:4px 0 0;color:var(--muted)}
+    .controls{display:flex;gap:10px;flex-wrap:wrap}
+    button,.chip{cursor:pointer;border:1px solid var(--border);background:linear-gradient(180deg,#1a2444,#121a2e);color:var(--ink);padding:10px 14px;border-radius:14px}
+    button:hover{border-color:#2a3b75}
+    .search{flex:1;display:flex;gap:10px}
+    .search input{flex:1;background:var(--panel);border:1px solid var(--border);color:var(--ink);padding:12px 14px;border-radius:14px;outline:none}
+    .grid{display:grid;grid-template-columns: 260px 1fr; gap:18px}
+    nav{position:sticky;top:18px;align-self:start;background:linear-gradient(180deg,#121a2e,#0c1326);border:1px solid var(--border);border-radius:16px;padding:16px}
+    nav h3{margin:0 0 10px;font-size:14px;color:var(--muted)}
+    nav a{display:block;color:var(--ink);text-decoration:none;padding:8px 10px;border-radius:10px}
+    nav a:hover,nav a.active{background:var(--chip)}
+
+    section{background:linear-gradient(180deg,#121a2e,#0c1326);border:1px solid var(--border);border-radius:16px; padding:18px}
+    section h2{margin:0 0 10px; font-size:20px}
+    section p{margin:6px 0 10px;color:var(--muted)}
+    .note{font-size:13px;color:var(--muted)}
+
+    pre{margin:10px 0 0; background:var(--code); color:#e7ecff; border:1px solid var(--border); border-radius:14px; padding:14px 14px 12px; overflow:auto; position:relative}
+    code{font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size:13.5px}
+    .copy{position:absolute;right:10px;top:8px;border-radius:10px;padding:6px 10px;font-size:12px;opacity:.85}
+    .kbd{background:var(--kbd);border:1px solid var(--border);border-bottom-width:2px;border-radius:8px;padding:2px 6px;font-size:12px}
+    .tag{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--border);background:var(--chip);padding:4px 8px;border-radius:999px;font-size:12px;color:var(--muted)}
+    .row{display:flex;flex-wrap:wrap;gap:10px}
+    .good{color:var(--ok)} .warn{color:var(--warn)} .bad{color:var(--bad)}
+    footer{margin:28px 0 8px; text-align:center; color:var(--muted); font-size:13px}
+    .pill{display:inline-block;background:var(--chip);border:1px solid var(--border);padding:3px 8px;border-radius:999px;font-size:12px;color:var(--muted)}
+    .table{width:100%;border-collapse:separate;border-spacing:0 8px}
+    .table th{color:var(--muted);font-weight:600;text-align:left;padding:6px 8px}
+    .table td{padding:6px 8px;border-top:1px solid var(--border);border-bottom:1px solid var(--border);background:linear-gradient(180deg,#10172b,#0b1223)}
+    .table tr td:first-child{border-left:1px solid var(--border);border-radius:12px 0 0 12px}
+    .table tr td:last-child{border-right:1px solid var(--border);border-radius:0 12px 12px 0}
+    .hide{display:none !important}
+    .highlight{outline:2px solid var(--brand); outline-offset:3px}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div class="title">
+        <h1>🐻 Polars Cheat Sheet — Eager & Lazy (Python)</h1>
+        <p>Fast, expressive DataFrame ops for data prep, feature engineering, joins, windows, pivots, strings, dates, and more. Copy-ready snippets.</p>
+      </div>
+      <div class="controls">
+        <span class="pill">Works offline · Single file</span>
+        <button id="toggleDark">Toggle contrast</button>
+      </div>
+    </header>
+
+    <div class="search">
+      <input id="search" placeholder="Search commands (e.g. group_by, join_asof, rolling_mean, dt.year)"/>
+      <button id="clear">Clear</button>
+    </div>
+
+    <div class="grid" style="margin-top:18px">
+      <nav id="toc">
+        <h3>Sections</h3>
+        <a href="#setup">Setup & Basics</a>
+        <a href="#io">I/O (CSV, Parquet, JSON, IPC)</a>
+        <a href="#select-filter">Select & Filter</a>
+        <a href="#derive">Derive Columns & Casting</a>
+        <a href="#strings">Strings</a>
+        <a href="#dates">Date & Time</a>
+        <a href="#joins">Joins</a>
+        <a href="#groupby">GroupBy & Aggregations</a>
+        <a href="#windows">Window / Rolling</a>
+        <a href="#reshape">Pivot / Melt / Reshape</a>
+        <a href="#missing">Missing & Nulls</a>
+        <a href="#sort-unique">Sort, Unique, Sample</a>
+        <a href="#cats">Categoricals & One‑Hot</a>
+        <a href="#udf">UDFs & Conditional</a>
+        <a href="#concat">Concat & Stack</a>
+        <a href="#lazy">Lazy API (scan → collect)</a>
+        <a href="#perf">Performance Tips</a>
+        <a href="#compare">Pandas ↔ Polars (Quick Map)</a>
+      </nav>
+
+      <main id="content">
+        <section id="setup">
+          <h2>Setup & Basics</h2>
+          <p class="row">
+            <span class="tag">Eager</span>
+            <span class="tag">Lazy</span>
+            <span class="tag">Python</span>
+          </p>
+          <pre><button class="copy">Copy</button><code>pip install polars
+
+import polars as pl
+pl.__version__  # check version
+
+# Create DataFrame
+lf = pl.DataFrame({
+    "a":[1,2,3,4],
+    "b":[10,20,30,40],
+    "grp":["x","x","y","y"],
+})
+
+# Column selector helpers
+pl.all()            # all columns
+pl.col("a")         # a single column expr
+pl.cols("a","b")   # multiple cols by name
+pl.selectors.numeric()  # numeric columns
+</code></pre>
+        </section>
+
+        <section id="io">
+          <h2>I/O (CSV, Parquet, JSON, IPC)</h2>
+          <p>Use <span class="kbd">read_*</span> for eager, <span class="kbd">scan_*</span> for lazy (deferred) reading.</p>
+          <pre><button class="copy">Copy</button><code># CSV
+pl.read_csv("file.csv")
+pl.scan_csv("file.csv")  # lazy
+
+# Parquet
+pl.read_parquet("file.parquet")
+pl.scan_parquet("file.parquet")
+
+# JSON / NDJSON
+pl.read_json("file.json")            # eager (array or records)
+pl.read_ndjson("file.ndjson")        # newline-delimited
+
+# IPC / Feather
+pl.read_ipc("file.arrow")
+pl.scan_ipc("file.arrow")
+
+# Write
+df.write_csv("out.csv")
+df.write_parquet("out.parquet")
+df.write_json("out.json")            # or write_ndjson
+</code></pre>
+        </section>
+
+        <section id="select-filter">
+          <h2>Select & Filter</h2>
+          <p>Use expressions inside <span class="kbd">select</span> / <span class="kbd">with_columns</span> / <span class="kbd">filter</span>.</p>
+          <pre><button class="copy">Copy</button><code>df.select(pl.col("a"), (pl.col("b")*2).alias("b2"))
+
+# Filter
+out = df.filter( (pl.col("a") &gt; 1) &amp; (pl.col("b") &lt;= 30) )
+
+# Select by dtype or name pattern
+num = df.select(pl.selectors.numeric())
+starts = df.select(pl.col("^prefix_.*$").regex())
+
+# Multi-column ops
+df.select(pl.all().sum().suffix("_sum"))
+
+# Row-wise reductions
+df.select(pl.max_horizontal(["a","b"]).alias("row_max"))
+</code></pre>
+        </section>
+
+        <section id="derive">
+          <h2>Derive Columns & Casting</h2>
+          <p>Prefer vectorized expressions. Avoid Python loops.</p>
+          <pre><button class="copy">Copy</button><code># Add / transform columns
+out = df.with_columns([
+    (pl.col("a") + pl.col("b")).alias("a_plus_b"),
+    pl.when(pl.col("a") &gt; 2).then(1).otherwise(0).alias("flag"),
+    pl.col("grp").cast(pl.Categorical),
+])
+
+# Rename / drop
+out = df.rename({"a":"A"}).drop(["b"])
+
+# Type casting
+out = df.with_columns([
+    pl.col("a").cast(pl.Int64),
+    pl.col("b").cast(pl.Float64),
+])
+</code></pre>
+        </section>
+
+        <section id="strings">
+          <h2>Strings</h2>
+          <pre><button class="copy">Copy</button><code>df.with_columns([
+    pl.col("name").str.to_lowercase().alias("lower"),
+    pl.col("name").str.contains("regex|pattern").alias("has_pat"),
+    pl.col("name").str.replace("foo","bar"),
+    pl.col("name").str.strip_chars(),
+    pl.col("name").str.len_bytes().alias("len"),
+])
+
+# Split / extract
+pl.col("path").str.split("/")
+pl.col("email").str.extract(r"@([\w.-]+)", group_index=1)
+</code></pre>
+        </section>
+
+        <section id="dates">
+          <h2>Date & Time</h2>
+          <p>Parse, extract, shift, truncate/round, and handle time zones.</p>
+          <pre><button class="copy">Copy</button><code># Parse strings to datetime
+pl.col("ts").str.strptime(pl.Datetime, format="%Y-%m-%d %H:%M:%S")
+
+# Components
+pl.col("ts").dt.year()
+pl.col("ts").dt.month()
+pl.col("ts").dt.weekday()
+pl.col("ts").dt.date()
+
+# Offsets
+pl.col("ts").dt.offset_by("+3d")
+pl.col("ts").dt.truncate("1h")    # floor to 1 hour
+pl.col("ts").dt.round("15m")       # round to 15 min
+
+# Time zones
+pl.col("ts").dt.replace_time_zone("UTC")
+pl.col("ts").dt.convert_time_zone("Asia/Kolkata")
+</code></pre>
+        </section>
+
+        <section id="joins">
+          <h2>Joins</h2>
+          <p>All standard joins, plus asof and cross.</p>
+          <pre><button class="copy">Copy</button><code>df.join(df2, on="key", how="inner")
+df.join(df2, on=["k1","k2"], how="left")
+df.join(df2, on="key", how="outer")
+
+# Cross join
+df.join(df2, how="cross")
+
+# As-of join (time-aware; df must be sorted by 'ts')
+df.join_asof(df2, left_on="ts", right_on="ts", strategy="backward", by="id")
+</code></pre>
+        </section>
+
+        <section id="groupby">
+          <h2>GroupBy & Aggregations</h2>
+          <p><span class="note">Newer Polars versions prefer <span class="kbd">group_by</span> (alias: <span class="kbd">groupby</span>).</span></p>
+          <pre><button class="copy">Copy</button><code># Single agg
+out = df.group_by("grp").agg(pl.col("a").sum())
+
+# Multiple aggs
+out = df.group_by("grp").agg([
+    pl.col("a").mean().alias("a_mean"),
+    pl.col("b").sum().alias("b_sum"),
+    pl.len().alias("n")
+])
+
+# Multi-key group
+out = df.group_by(["grp","k"]).agg(pl.all().sum())
+
+# Aggregating multiple columns with same fns
+out = df.group_by("grp").agg(
+    pl.selectors.numeric().sum().suffix("_sum")
+)
+</code></pre>
+        </section>
+
+        <section id="windows">
+          <h2>Window / Rolling</h2>
+          <p>Use <span class="kbd">over()</span> for partitioned window calcs; <span class="kbd">rolling_*()</span> for time or index windows.</p>
+          <pre><button class="copy">Copy</button><code># Partitioned window
+out = df.with_columns([
+    (pl.col("b") - pl.col("b").mean().over("grp")).alias("b_demean"),
+    pl.col("b").cum_sum().over("grp").alias("b_cumsum"),
+])
+
+# Rolling (by row count)
+df.with_columns(
+    pl.col("b").rolling_mean(window_size=3).alias("b_roll3")
+)
+
+# Time-based rolling (requires a time column)
+df.sort("ts").with_columns([
+    pl.col("val").rolling_mean(by="ts", period="7d").alias("mean_7d")
+])
+</code></pre>
+        </section>
+
+        <section id="reshape">
+          <h2>Pivot / Melt / Reshape</h2>
+          <pre><button class="copy">Copy</button><code># Pivot wider
+wide = df.pivot(values="val", index="id", columns="metric", aggregate_function="sum")
+
+# Melt (long)
+long = df.melt(id_vars=["id"], value_vars=["m1","m2"], variable_name="metric", value_name="val")
+
+# Get dummies (one-hot)
+onehot = pl.get_dummies(df, columns=["cat"])
+</code></pre>
+        </section>
+
+        <section id="missing">
+          <h2>Missing & Nulls</h2>
+          <pre><button class="copy">Copy</button><code># Detect
+pl.col("x").is_null()
+pl.col("x").is_nan()
+
+# Fill
+out = df.with_columns([
+    pl.col("x").fill_null(0),
+    pl.col("y").fill_nan(pl.mean("y")),
+    pl.coalesce(["x","y", pl.lit(0)]).alias("first_non_null")
+])
+
+# Drop rows with any nulls
+clean = df.drop_nulls()
+# Drop rows where specific subset has nulls
+clean2 = df.drop_nulls(["x","y"])
+</code></pre>
+        </section>
+
+        <section id="sort-unique">
+          <h2>Sort, Unique, Sample</h2>
+          <pre><button class="copy">Copy</button><code>df.sort("col", descending=True)
+
+# Multi-column with per-column order
+df.sort(by=["a","b"], descending=[True, False])
+
+# Unique / distinct
+uniq_rows = df.unique()                 # on all cols
+uniq_vals = df.select(pl.col("a").unique())
+
+# Counts
+vc = df.select(pl.col("a").value_counts())
+
+# Sample
+sampled = df.sample(n=100, shuffle=True, seed=42)
+frac = df.sample(frac=0.2, with_replacement=False)
+</code></pre>
+        </section>
+
+        <section id="cats">
+          <h2>Categoricals & One‑Hot</h2>
+          <pre><button class="copy">Copy</button><code>df = df.with_columns(pl.col("cat").cast(pl.Categorical))
+
+# Set ordering (optional)
+df = df.with_columns(pl.col("cat").cat.set_ordering("lexical"))
+
+enc = pl.get_dummies(df, columns=["cat"])  # one-hot
+</code></pre>
+        </section>
+
+        <section id="udf">
+          <h2>UDFs & Conditional Logic</h2>
+          <p>Prefer built-in expressions. Use <span class="kbd">map_elements</span> for Python UDFs when necessary.</p>
+          <pre><button class="copy">Copy</button><code># Conditional with when/then/otherwise
+out = df.with_columns(
+    pl.when(pl.col("a") &gt;= 10).then("big").otherwise("small").alias("size")
+)
+
+# Python function (row-wise element mapping)
+import math
+out = df.with_columns(
+    pl.col("a").map_elements(lambda x: math.log1p(x)).alias("log1p_a")
+)
+</code></pre>
+        </section>
+
+        <section id="concat">
+          <h2>Concat & Stack</h2>
+          <pre><button class="copy">Copy</button><code># Vertical (rows)
+pl.concat([df1, df2], how="vertical")
+
+# Horizontal (columns)
+pl.concat([df1, df2], how="horizontal")
+
+# Diagonal (fill missing with nulls)
+pl.concat([df1, df2], how="diagonal")
+
+# With row count
+out = df.with_row_count(name="row_id")
+</code></pre>
+        </section>
+
+        <section id="lazy">
+          <h2>Lazy API (scan → optimize → collect)</h2>
+          <p>Build a query plan with <span class="kbd">scan_*</span> or <span class="kbd">df.lazy()</span>, then <span class="kbd">collect()</span>.</p>
+          <pre><button class="copy">Copy</button><code>lf = pl.scan_csv("big.csv")  # deferred
+
+q = (
+  lf.filter(pl.col("a") &gt; 0)
+    .with_columns((pl.col("b")*2).alias("b2"))
+    .group_by("grp").agg([
+        pl.col("a").mean().alias("a_mean"),
+        pl.col("b2").sum().alias("b2_sum"),
+    ])
+    .sort("a_mean", descending=True)
+)
+
+q.explain()                   # show optimized plan
+res = q.collect(streaming=True)  # execute
+
+# Fetch a sample without full execution
+preview = q.fetch(10)
+</code></pre>
+        </section>
+
+        <section id="perf">
+          <h2>Performance Tips</h2>
+          <ul class="note">
+            <li>Prefer <span class="kbd">scan_*</span> + <span class="kbd">lazy</span> for large data; enable <span class="kbd">streaming=True</span> on collect when possible.</li>
+            <li>Push work into expressions (no Python loops); avoid <span class="kbd">map_elements</span> unless required.</li>
+            <li>Use projection pruning: select only needed columns early.</li>
+            <li>Filter early in lazy plans to reduce data movement.</li>
+            <li>Use <span class="kbd">.explain()</span> to inspect plans; <span class="kbd">.profile()</span> to measure (if available in your version).</li>
+          </ul>
+        </section>
+
+        <section id="compare">
+          <h2>Pandas ↔ Polars (Quick Map)</h2>
+          <p>Handy mapping for common tasks.</p>
+          <table class="table">
+            <thead>
+              <tr><th>Task</th><th>Pandas</th><th>Polars</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>Read CSV</td><td><code>pd.read_csv("f.csv")</code></td><td><code>pl.read_csv("f.csv")</code> / <code>pl.scan_csv</code></td></tr>
+              <tr><td>Filter</td><td><code>df[df.a&gt;1]</code></td><td><code>df.filter(pl.col("a")&gt;1)</code></td></tr>
+              <tr><td>Add Column</td><td><code>df["c"]=df.a+df.b</code></td><td><code>df.with_columns((pl.col("a")+pl.col("b")).alias("c"))</code></td></tr>
+              <tr><td>Group + Agg</td><td><code>df.groupby("g").sum()</code></td><td><code>df.group_by("g").agg(pl.all().sum())</code></td></tr>
+              <tr><td>Pivot</td><td><code>df.pivot_table(...)</code></td><td><code>df.pivot(...)</code></td></tr>
+              <tr><td>One‑hot</td><td><code>pd.get_dummies</code></td><td><code>pl.get_dummies</code></td></tr>
+              <tr><td>Rolling</td><td><code>df.rolling(...)</code></td><td><code>pl.col("x").rolling_mean(...)</code></td></tr>
+            </tbody>
+          </table>
+        </section>
+      </main>
+    </div>
+
+    <footer>
+      Built with ❤️ for fast copy/paste. Drop this file on any static host (GitHub Pages, Netlify, Vercel) and you’re live.
+    </footer>
+  </div>
+
+  <script>
+    // Copy buttons
+    document.querySelectorAll('pre').forEach(pre=>{
+      const btn = pre.querySelector('.copy');
+      btn?.addEventListener('click', async ()=>{
+        const code = pre.querySelector('code').innerText;
+        try{ await navigator.clipboard.writeText(code); btn.textContent='Copied!'; setTimeout(()=>btn.textContent='Copy',1400);}catch(e){ btn.textContent='Copy failed'; setTimeout(()=>btn.textContent='Copy',1400); }
+      });
+    });
+
+    // Search filter
+    const search = document.getElementById('search');
+    const clear = document.getElementById('clear');
+    const sections = [...document.querySelectorAll('main section')];
+    function applyFilter(){
+      const q = search.value.trim().toLowerCase();
+      sections.forEach(sec=>{
+        if(!q){ sec.classList.remove('hide'); return; }
+        const txt = sec.innerText.toLowerCase();
+        if(txt.includes(q)) sec.classList.remove('hide'); else sec.classList.add('hide');
+      });
+    }
+    search.addEventListener('input', applyFilter);
+    clear.addEventListener('click', ()=>{ search.value=''; applyFilter(); search.focus(); });
+
+    // TOC active link highlight
+    const links = [...document.querySelectorAll('#toc a')];
+    const map = links.map(a=>({a, id:a.getAttribute('href').slice(1)}));
+    const io = new IntersectionObserver(entries=>{
+      entries.forEach(e=>{
+        const id = e.target.id; const l = links.find(x=>x.getAttribute('href')==='#'+id);
+        if(e.isIntersecting){ links.forEach(x=>x.classList.remove('active')); l?.classList.add('active'); }
+      });
+    }, { rootMargin: '-40% 0px -55% 0px', threshold: 0.01 });
+    document.querySelectorAll('main section').forEach(sec=>io.observe(sec));
+
+    // Contrast toggle (simple alt theme)
+    document.getElementById('toggleDark').addEventListener('click', ()=>{
+      const r = document.documentElement;
+      const dark = getComputedStyle(r).getPropertyValue('--bg').trim()==='#0b1020';
+      if(dark){
+        r.style.setProperty('--bg','#0f1216');
+        r.style.setProperty('--panel','#12161d');
+        r.style.setProperty('--code','#0f141a');
+        r.style.setProperty('--ink','#eaeef5');
+        r.style.setProperty('--muted','#b6bfcc');
+        r.style.setProperty('--border','#222a33');
+        r.style.setProperty('--chip','#151b22');
+      } else {
+        r.style.setProperty('--bg','#0b1020');
+        r.style.setProperty('--panel','#121a2e');
+        r.style.setProperty('--code','#0d1326');
+        r.style.setProperty('--ink','#e9eefc');
+        r.style.setProperty('--muted','#a9b3d2');
+        r.style.setProperty('--border','#1b2440');
+        r.style.setProperty('--chip','#1a2342');
+      }
+    });
+  </script>
+</body>
+</html>
